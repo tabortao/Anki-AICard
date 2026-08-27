@@ -1,8 +1,10 @@
+# AICard/main_dialog.py
+import os
 from aqt.qt import (
     QDialog, QVBoxLayout, QHBoxLayout, QSplitter, QLabel, QTextEdit,
     QLineEdit, QPushButton, QComboBox, QTableWidget, QTableWidgetItem,
     QHeaderView, QFileDialog, QMessageBox, QWidget, QScrollArea, Qt,
-    QMenu, QAction, QApplication
+    QMenu, QApplication, QFont, QToolButton
 )
 from aqt import mw
 from aqt.operations import QueryOp
@@ -34,17 +36,17 @@ class AICardDialog(QDialog):
 
         left_layout.addWidget(QLabel("<b>输入学习材料</b>"))
         self.material_input = QTextEdit()
-        self.material_input.setPlaceholderText("在此粘贴学习资料，或通过提示词快速构造提炼模板...")
+        self.material_input.setPlaceholderText("在此粘贴学习资料，或通过提示词模板快速构造提炼需求...")
         left_layout.addWidget(self.material_input, stretch=3)
 
-        # 文件上传 + 提示词选择工具栏
+        # 文件上传 + 提示词快捷菜单栏
         tool_row = QHBoxLayout()
         tool_row.addWidget(QLabel("📎 上传文件:"))
         self.upload_btn = QPushButton("选择文件...")
         self.upload_btn.clicked.connect(self.on_upload_file)
         tool_row.addWidget(self.upload_btn)
 
-        # 💡 提示词按钮与下拉菜单
+        # 💡 提示词模板按钮
         self.prompt_btn = QPushButton("💡 提示词模板 ▾")
         self.prompt_btn.clicked.connect(self.show_prompt_menu)
         tool_row.addWidget(self.prompt_btn)
@@ -67,7 +69,7 @@ class AICardDialog(QDialog):
         self.preview_table.itemSelectionChanged.connect(self.on_table_selection_changed)
         left_layout.addWidget(self.preview_table, stretch=4)
 
-        # 表格快捷操作
+        # 底部快捷操作栏
         action_layout = QHBoxLayout()
         self.select_all_btn = QPushButton("全选")
         self.select_all_btn.clicked.connect(lambda: self.set_all_checked(True))
@@ -88,7 +90,7 @@ class AICardDialog(QDialog):
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
 
-        # 顶部配置栏
+        # 顶部配置栏 (牌组 & 笔记类型 & AI设置)
         top_bar = QHBoxLayout()
         top_bar.addWidget(QLabel("牌组:"))
         self.deck_combo = QComboBox()
@@ -104,19 +106,48 @@ class AICardDialog(QDialog):
         top_bar.addWidget(self.settings_btn)
         right_layout.addLayout(top_bar)
 
-        # 格式化小工具栏 (B, I, U, Code, H)
+        # ================= 格式化小工具栏 (彻底修复：使用原生 QToolButton) =================
         fmt_toolbar = QHBoxLayout()
         fmt_toolbar.setSpacing(4)
-        for tag, symbol in [("b", "<b>B</b>"), ("i", "<i>I</i>"), ("u", "<u>U</u>"), ("code", "&lt;/&gt;"), ("h", "H")]:
-            btn = QPushButton()
-            btn.setText(tag.upper() if tag != "code" else "</>")
-            btn.setFixedWidth(36)
+        fmt_toolbar.setContentsMargins(0, 2, 0, 6)
+
+        tools_def = [
+            ("b", "B", "加粗 (Bold)", True, False, False, False),
+            ("i", "I", "斜体 (Italic)", False, True, False, False),
+            ("u", "U", "下划线 (Underline)", False, False, True, False),
+            ("code", "</>", "代码块 (Code)", False, False, False, True),
+            ("h", "H", "大标题 (Heading)", True, False, False, False),
+        ]
+
+        for tag, text, tooltip, is_bold, is_italic, is_underline, is_mono in tools_def:
+            btn = QToolButton()
+            btn.setText(text)
+            btn.setToolTip(tooltip)
+            btn.setFixedSize(32, 32)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            
+            # 使用 autoRaise，让按钮呈现 Anki 原生的无边框扁平样式，悬浮时才亮起
+            btn.setAutoRaise(True)
+            
+            # 仅修改字形，绝对不要修改字体颜色，交给 Anki 主题控制
+            font = btn.font()
+            font.setPointSize(12)
+            font.setBold(is_bold)
+            font.setItalic(is_italic)
+            font.setUnderline(is_underline)
+            if is_mono:
+                font.setFamily("Courier New")
+            btn.setFont(font)
+
             btn.clicked.connect(lambda checked, t=tag: self.format_active_text(t))
             fmt_toolbar.addWidget(btn)
+
         fmt_toolbar.addStretch()
         right_layout.addLayout(fmt_toolbar)
 
-        # 动态字段展示区
+        # ======================================================================
+
+        # 动态字段展示区（支持按模板字段自动扩展）
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.fields_container = QWidget()
@@ -149,7 +180,7 @@ class AICardDialog(QDialog):
         splitter.setSizes([560, 680])
 
     def show_prompt_menu(self):
-        """弹出提示词选择菜单"""
+        """弹出提示词快捷菜单"""
         config = mw.addonManager.getConfig(__name__) or {}
         prompts = config.get("prompts", [])
         
@@ -176,28 +207,35 @@ class AICardDialog(QDialog):
         dlg.exec()
 
     def format_active_text(self, tag: str):
-        """在活跃的字段输入框中包装 HTML 标签"""
+        """在活跃的字段输入框中应用 HTML 格式"""
         if not self.active_edit:
-            return
+            if self.field_edits:
+                self.active_edit = next(iter(self.field_edits.values()))
+            else:
+                return
+
         cursor = self.active_edit.textCursor()
         selected = cursor.selectedText()
-        if not selected:
-            return
+
+        tag_pairs = {
+            "b": ("<b>", "</b>"),
+            "i": ("<i>", "</i>"),
+            "u": ("<u>", "</u>"),
+            "code": ("<code>", "</code>"),
+            "h": ("<h3>", "</h3>")
+        }
+
+        if tag in tag_pairs:
+            start_tag, end_tag = tag_pairs[tag]
+            if selected:
+                cursor.insertText(f"{start_tag}{selected}{end_tag}")
+            else:
+                pos = cursor.position()
+                cursor.insertText(f"{start_tag}{end_tag}")
+                cursor.setPosition(pos + len(start_tag))
+                self.active_edit.setTextCursor(cursor)
         
-        if tag == "b":
-            new_text = f"<b>{selected}</b>"
-        elif tag == "i":
-            new_text = f"<i>{selected}</i>"
-        elif tag == "u":
-            new_text = f"<u>{selected}</u>"
-        elif tag == "code":
-            new_text = f"<code>{selected}</code>"
-        elif tag == "h":
-            new_text = f"<h3>{selected}</h3>"
-        else:
-            new_text = selected
-        
-        cursor.insertText(new_text)
+        self.active_edit.setFocus()
 
     def load_decks_and_models(self):
         self.deck_combo.clear()
@@ -221,6 +259,7 @@ class AICardDialog(QDialog):
             if item.widget():
                 item.widget().deleteLater()
         self.field_edits.clear()
+        self.active_edit = None
 
         fields = self.get_current_model_fields()
         for field in fields:
@@ -228,7 +267,6 @@ class AICardDialog(QDialog):
             edit = QTextEdit()
             edit.setPlaceholderText(f"输入 {field}...")
             edit.textChanged.connect(self.on_field_text_edited)
-            # 记录当前聚焦的编辑框以支持格式化按钮
             edit.installEventFilter(self)
             self.fields_layout.addWidget(lbl)
             self.fields_layout.addWidget(edit)
@@ -267,7 +305,7 @@ class AICardDialog(QDialog):
 
         fields = self.get_current_model_fields()
         if not fields:
-            showWarning("当前笔记类型不存在字段！")
+            showWarning("当前笔记类型不存在可用字段！")
             return
 
         self.gen_btn.setEnabled(False)
