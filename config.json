@@ -1,6 +1,19 @@
 {
+  "provider": "DeepSeek",
   "api_key": "",
-  "api_base": "https://api.openai.com/v1",
-  "model": "gpt-4o-mini",
-  "timeout": 60
+  "api_base": "https://api.deepseek.com",
+  "model": "deepseek-chat",
+  "timeout": 60,
+  "prompts": [
+    {
+      "id": "1",
+      "title": "📘 概念提炼与原子化问答",
+      "content": "请分析以下学习资料，将其提炼为多组结构清晰的 Anki 卡片：\n1. 正面提出具体、明确的问题或核心概念。\n2. 背面提供精炼的解释、核心要点或例子。\n3. 保证知识点单点化（原子化），避免长篇大论。\n\n【学习材料】：\n"
+    },
+    {
+      "id": "2",
+      "title": "🌍 外语单词与短语深度速记",
+      "content": "请根据以下词汇/句子列表，为每个单词或语法点生成制卡内容：\n1. 正面：目标词汇、音标或发音提示、简短上下文填空。\n2. 背面：中文释义、词性、地道例句及翻译、常见搭配。\n\n【词汇材料】：\n"
+    }
+  ]
 }
