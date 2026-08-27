@@ -5,6 +5,9 @@ import zipfile
 # 输出的文件名
 OUTPUT_NAME = "AICard.ankiaddon"
 
+# 输出文件夹
+OUTPUT_DIR = "bin"
+
 # 需要忽略的文件/文件夹
 IGNORE_PATTERNS = {
     "__pycache__",
@@ -12,13 +15,18 @@ IGNORE_PATTERNS = {
     ".vscode",
     ".DS_Store",
     "build.py",
-    "docs/",    
+    "docs",
+    "bin",
+    "README.md",    
     OUTPUT_NAME
 }
 
 def make_ankiaddon():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    output_path = os.path.join(current_dir, OUTPUT_NAME)
+    # 输出到 bin 文件夹
+    bin_dir = os.path.join(current_dir, OUTPUT_DIR)
+    os.makedirs(bin_dir, exist_ok=True)
+    output_path = os.path.join(bin_dir, OUTPUT_NAME)
     
     # 如果已存在先删除
     if os.path.exists(output_path):
