@@ -2,7 +2,7 @@
 
 `AICard` 是一款为 Anki（兼容 26.08.1+ / PyQt6 环境）开发的 AI 辅助批量制卡插件。它旨在复用用户本地已有的牌组和笔记模板，通过兼容 OpenAI 标准的大模型接口，将零散的学习材料快速转化为格式规范的 Anki 卡片。
 
-![AICard UI](.\docs\image\Anki-AICard-UI.png)
+![AICard UI](docs\image\Anki-AICard-UI.png)
 
 ## 核心功能
 
