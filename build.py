@@ -17,7 +17,8 @@ IGNORE_PATTERNS = {
     "build.py",
     "docs",
     "bin",
-    "README.md",    
+    "README.md",   
+    ".gitignore",   
     OUTPUT_NAME
 }
 
